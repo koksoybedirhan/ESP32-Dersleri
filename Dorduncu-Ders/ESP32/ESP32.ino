@@ -11,7 +11,7 @@ Code for 1st ESP32
 // Replace the next variables with your SSID/Password combination
 const char* ssid = "Fatih-Bedirhan-2";//Add here your Wifi SSID name
 const char* password = "Fadbed2020"; //Add here your Wifi password
-const char* mqtt_server = "192.168.1.111";// your MQTT broker IPv4 adress - THIS IS DIFFERENT FOR YOU, pls check yours with "ipconfig"  in cmd line
+const char* mqtt_server = "192.168.1.102";// your MQTT broker IPv4 adress - THIS IS DIFFERENT FOR YOU, pls check yours with "ipconfig"  in cmd line
 
 WiFiClient espClient;
 PubSubClient client(espClient);// To connect more ESP32's change "client" to for instance "client2" here and in the rest of the code
