@@ -1,0 +1,75 @@
+#define TMP36_h
+
+class TMP36
+{
+  public:
+    TMP36(uint8_t pin, float aref);
+    float getVoltage();
+    float getTempC();
+    float getTempF();
+    float getTempK();
+  private:
+    uint8_t _pin;
+    uint8_t _value;
+    float _aref;
+    float _voltage;
+    float _tempC;
+    float _tempF; 
+    void getValues();
+};
+
+TMP36::TMP36(uint8_t pin, float aref) {
+  pinMode(pin, INPUT);
+  _aref = aref;
+  _pin = pin;  
+}
+
+void TMP36::getValues() {
+  _value = analogRead(_pin);
+  _voltage = (_value/1024.0) * _aref;
+  _tempC = (_voltage - .5) * 100;  
+  _tempF = (_tempC * 1.8) + 32; 
+} 
+
+float TMP36::getVoltage() {
+  getValues(); 
+  return _voltage;
+}
+
+float TMP36::getTempC() {
+  getValues(); 
+  return _tempC;
+}
+
+float TMP36::getTempF() {
+  getValues();
+  return _tempF;
+}
+
+float TMP36::getTempK() {
+  getValues();
+  return _tempC + 273.15;
+}
+
+TMP36 myTMP36(A0, 5.0); 
+
+void setup() {
+  Serial.begin(9600);
+}
+
+void loop() {
+  //create a variable and store the current temperature in
+  //celsius in it using the getTempC function
+  float celsius = myTMP36.getTempC(); 
+  
+  //create a variable and store the current temperature in
+  //fahrenheit in it using the getTempF function
+  float fahrenheit = myTMP36.getTempF(); 
+
+  //Print the data to the Serial monitor
+  Serial.print("Celsius: ");
+  Serial.print(celsius);
+  Serial.print(" Fahrenheit: ");
+  Serial.println(fahrenheit);
+  delay(500);
+}
