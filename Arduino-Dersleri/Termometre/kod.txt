@@ -1,0 +1,49 @@
+int celcius=0;
+int fahrenheit=0;
+int kelvin=0;
+int no_led=12;
+
+void setup()
+{
+  pinMode(A0, INPUT);
+  for (int i=0; i<no_led; i++) {
+    pinMode(i+2, OUTPUT);
+  }
+  Serial.begin(9600);
+}
+
+void loop()
+{
+  int batasSuhuC = 10;
+  celcius = map(((analogRead(A0) - 20) * 3.04)
+                , 0, 1023, -40, 125);
+  fahrenheit = ((celcius * 9) / 5 + 32);
+  kelvin = celcius + 273;
+  
+  Serial.print(celcius);
+  Serial.print(" C, ");
+  Serial.print(fahrenheit);
+  Serial.print(" F, ");
+  Serial.print(kelvin);
+  Serial.println(" K");
+  
+  int i = 0;
+  while (celcius > batasSuhuC + 10*i) {
+    for (int j=0; j <= i; j++) {
+      digitalWrite(j+2, HIGH);
+    }
+    for (int j=no_led+1; j > i+2; j--) {
+      digitalWrite(j, LOW);
+    }
+    i++;
+  }
+  
+  if (celcius <= batasSuhuC) {
+    for (int i=0; i<no_led; i++) {
+    digitalWrite(i+2, LOW);
+    }
+  }
+  delay(1000);
+}
+
+
