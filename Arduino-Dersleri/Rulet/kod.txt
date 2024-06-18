@@ -1,0 +1,387 @@
+#include <Adafruit_NeoPixel.h>
+#include <LiquidCrystal.h>
+#define PIN 8
+#define NUMLEDS 24
+
+LiquidCrystal lcd(12,11,5,4,3,2);
+Adafruit_NeoPixel leds = Adafruit_NeoPixel(
+  24, PIN, NEO_GRB + NEO_KHZ800);
+
+int tokens = 1000;
+
+int buttonRed = 15;
+int buttonYellow = 16;
+int buttonBlue = 17;
+
+int buttonIndicators[] = {10,9,7};
+
+int idleInterval = 0;
+
+int speaker = 14;
+bool isPlaying = false;
+
+void setup()
+{
+  Serial.begin(9600);
+  SetupDisplay();
+  SetupAudio();
+  SetupButtons();
+  SetupLEDs();
+  PrintInstructions();
+}
+
+void loop()
+{
+  DisplayTokens();
+  if(tokens <= 0){// NOT ENOUGH TOKENS TO PLAY
+  	Serial.println("YOU'RE BROKE!");
+    DisplayMessage("YOU'RE BROKE!");
+  } else {
+    if(!isPlaying)// Can only play if not already playing
+      Idle();
+  }
+}
+
+void SetupDisplay(){
+  lcd.begin(16,2);
+}
+
+void SetupAudio(){
+	pinMode(speaker, OUTPUT);
+}
+
+void SetupButtons(){
+  pinMode(buttonRed,OUTPUT);
+  pinMode(buttonYellow,OUTPUT);
+  pinMode(buttonBlue,OUTPUT);
+}
+
+void SetupIndicators(){
+  for(int indicator : buttonIndicators){
+  	pinMode(indicator, OUTPUT);
+  }
+}
+void SetupLEDs(){
+  leds.begin();
+}
+
+void PrintInstructions(){
+  Serial.println("Poor Man's Roulette");
+  Serial.println("Spin the wheel and see how many tokens you make!");
+  Serial.println("Press 'Left Button' to bet 10 Tokens on RED");
+  Serial.println("Press 'Middle Button' to bet on 100 Tokens on YELLOW");
+  Serial.println("Press 'Right Button' to bet on 10 Tokens on BLUE");
+  Serial.println("Player loses the amount they bet");
+  Serial.println("====================================================");
+  PrintTokens();
+}
+
+void Idle(){
+  //Can place bet before idle delay
+  PlaceBet();
+  
+  for(int indicator : buttonIndicators)
+    digitalWrite(indicator, HIGH);
+  
+  if(idleInterval == NUMLEDS)
+    idleInterval = 0;
+  
+  if(idleInterval == NUMLEDS/2){
+    leds.setPixelColor(idleInterval, leds.Color(245,245,66));
+    leds.show();
+    delay(100);
+  } else {
+    leds.setPixelColor(idleInterval, leds.Color(255,255,255));
+    leds.show();
+    delay(100);
+  }
+  
+  
+  leds.setPixelColor(idleInterval, leds.Color(0,0,0));
+  //Can place bet after idle delay
+  PlaceBet();
+  
+  
+  idleInterval++;
+}
+
+
+void PlaceBet(){
+  if(digitalRead(buttonRed) == HIGH)
+    game(1);
+  else if(digitalRead(buttonYellow) == HIGH)
+    game(2);
+  else if(digitalRead(buttonBlue) == HIGH)
+    game(3);
+}
+
+void game(int choice){
+  //Start Game
+  UpdateState();
+  
+  UpdateIndicators(choice);
+  
+  //Spin the 'wheel' and decide the last led
+  int winningLed = Spin();
+  
+  //Determines if you win or lose
+  if(IsWinner(choice, winningLed)){
+  	Victory(choice, winningLed);
+  } else {
+  	Defeat(choice, winningLed);
+  }
+  
+  //End Game
+  EndState();
+}
+
+void UpdateIndicators(int choice){
+  if(choice == 1){
+  	digitalWrite(buttonIndicators[0], HIGH);
+  	digitalWrite(buttonIndicators[1], LOW);
+  	digitalWrite(buttonIndicators[2], LOW);
+  } else if(choice == 2){
+  	digitalWrite(buttonIndicators[0], LOW);
+  	digitalWrite(buttonIndicators[1], HIGH);
+  	digitalWrite(buttonIndicators[2], LOW);
+  } else if(choice == 3){
+  	digitalWrite(buttonIndicators[0], LOW);
+  	digitalWrite(buttonIndicators[1], LOW);
+  	digitalWrite(buttonIndicators[2], HIGH);
+  }
+}
+
+int Spin(){
+  //Initiate Round Variables
+  int lastRound = random(NUMLEDS,NUMLEDS*3+1);
+  int winningLed = -1;
+  int currentRound = 0;
+  
+  while(currentRound < lastRound){ //SPIN WHEEL OF NOT SO FORTUNE
+    int led = 0;
+    
+    if(currentRound == 0){
+      for(int led = idleInterval; led < NUMLEDS; led++, currentRound++){
+        if(currentRound < lastRound){
+          winningLed = led;
+
+          if(ledIsRed(led))
+              leds.setPixelColor(led, leds.Color(255,0,0));
+          else if(ledIsYellow(led))
+              leds.setPixelColor(led, leds.Color(245,245,66));
+          else if(ledIsBlue(led))
+              leds.setPixelColor(led, leds.Color(0,0,255));
+          leds.show();
+          delay(200);
+          leds.setPixelColor(led, leds.Color(0,0,0));
+          leds.show();
+        }
+      }
+    } else {
+      for(int led = 0; led < NUMLEDS; led++, currentRound++){
+        if(currentRound < lastRound){
+          winningLed = led;
+
+          if(ledIsRed(led))
+              leds.setPixelColor(led, leds.Color(255,0,0));
+          else if(ledIsYellow(led))
+              leds.setPixelColor(led, leds.Color(245,245,66));
+          else if(ledIsBlue(led))
+              leds.setPixelColor(led, leds.Color(0,0,255));
+          leds.show();
+          delay(200);
+          leds.setPixelColor(led, leds.Color(0,0,0));
+          leds.show();
+        }
+      }
+    }
+  }
+  
+  return winningLed;
+}
+
+// Modifier = 1 if WINNER
+// Modifier = -1 if LOSER
+void UpdateTokens(int choice, int modifier){
+	if(choice == 1 || choice == 3){
+      //Updates token value
+      tokens += 10*modifier;
+      
+      //Display amount loss/gained
+      if(modifier == 1){
+      	Serial.println("+10 Tokens");
+      	DisplayMessage("+10 Tokens");
+      }else if(modifier == -1){
+      	Serial.println("-10 Tokens");
+      	DisplayMessage("-10 Tokens");
+      }
+    } else if(choice == 2){
+      //Updates token value
+      tokens += 100*modifier;
+      
+      //Display amount loss/gained
+      if(modifier == 1){
+      	Serial.println("+100 Tokens");
+      	DisplayMessage("+100 Tokens");
+      }else if (modifier == -1){
+      	Serial.println("-100 Tokens");
+      	DisplayMessage("-100 Tokens");
+      }
+    }
+}
+
+
+/*
+	RED = 1
+    BLUE = 3
+    YELLOW = 2
+*/
+bool IsWinner(int choice, int winningLed){
+  if(ledIsYellow(winningLed)){//  WINNER IS YELLOW LED
+  	if(choice == 2)
+      return true;
+    else 
+      return false;
+  } else if(ledIsRed(winningLed)){// WINNER IS RED LED
+  	if(choice == 1)
+      return true;
+    else 
+      return false;
+  } else if(ledIsBlue(winningLed)){// WINNER IS BLUE LED
+  	if(choice == 3)
+      return true;
+    else 
+      return false;
+  }
+  
+  return false;
+}
+
+void Victory(int choice, int winningLed){
+  Serial.println("====================================================");
+	Serial.println("YOU WIN!\n\n");
+    
+    UpdateTokens(choice, 1);
+    
+    PrintTokens();
+    
+  Serial.println("====================================================");
+    Serial.println("Press a button to play again.");
+    
+    
+    // FLASH VICTORY LIGHTS YAAH
+  if(ledIsRed(winningLed))
+    leds.setPixelColor(winningLed, leds.Color(255,0,0));
+  else if(ledIsYellow(winningLed))
+    leds.setPixelColor(winningLed, leds.Color(245,245,66));
+  else if(ledIsBlue(winningLed))
+    leds.setPixelColor(winningLed, leds.Color(0,0,255));
+    
+   leds.show();
+   tone(speaker,400,10);
+   delay(500);
+   leds.setPixelColor(winningLed, leds.Color(0,0,0));
+   leds.show();
+   delay(500);
+  
+  if(ledIsRed(winningLed))
+    leds.setPixelColor(winningLed, leds.Color(255,0,0));
+  else if(ledIsYellow(winningLed))
+    leds.setPixelColor(winningLed, leds.Color(245,245,66));
+  else if(ledIsBlue(winningLed))
+    leds.setPixelColor(winningLed, leds.Color(0,0,255));
+    
+  leds.show();
+  tone(speaker,600,10);
+  delay(500);
+  leds.setPixelColor(winningLed, leds.Color(0,0,0));
+  leds.show();
+   delay(500);
+  
+  if(ledIsRed(winningLed))
+    leds.setPixelColor(winningLed, leds.Color(255,0,0));
+  else if(ledIsYellow(winningLed))
+    leds.setPixelColor(winningLed, leds.Color(245,245,66));
+  else if(ledIsBlue(winningLed))
+    leds.setPixelColor(winningLed, leds.Color(0,0,255));
+    
+  leds.show();
+  tone(speaker,800,10);
+}
+
+void Defeat(int choice, int winningLed){
+  Serial.println("====================================================");
+	Serial.println("TRY AGAIN NEXT TIME!\n\n");
+    
+    UpdateTokens(choice, -1);
+    
+    PrintTokens();
+    
+  Serial.println("====================================================");
+    Serial.println("Press a button to play again.");
+    
+    
+    // TURNS ON THE LOSER LIGHT
+    if(ledIsRed(winningLed))
+    	leds.setPixelColor(winningLed, leds.Color(255,0,0));
+    else if(ledIsYellow(winningLed))
+    	leds.setPixelColor(winningLed, leds.Color(245,245,66));
+     else if(ledIsBlue(winningLed))
+    	leds.setPixelColor(winningLed, leds.Color(0,0,255));
+      
+    leds.show();
+    tone(speaker,100,100);
+}
+
+bool ledIsRed(int led){
+	return led%2 == 0 && led != NUMLEDS/2;
+}
+bool ledIsYellow(int led){
+  return  led == NUMLEDS/2;
+}
+bool ledIsBlue(int led){
+	return led%2 == 1 && led != NUMLEDS/2;
+}
+
+void UpdateState(){
+  ClearBoard();
+  DisplayMessage("Spinning...");
+  isPlaying = true;
+}
+
+void EndState(){
+  isPlaying = false;
+  delay(2000);
+  ClearMessage();
+}
+
+void ClearBoard(){
+  for(int led = 0; led < NUMLEDS; led++){
+    leds.setPixelColor(led, leds.Color(0,0,0));
+    leds.show();
+  }
+}
+
+
+void PrintTokens(){
+  Serial.print("You have ");
+    Serial.print(tokens);
+    Serial.println(" Tokens");
+}
+
+void DisplayMessage(String message){
+  ClearMessage();
+  lcd.setCursor(1,1);
+  lcd.print(message);
+}
+
+void ClearMessage(){
+  lcd.clear();
+  DisplayTokens();
+}
+
+void DisplayTokens(){
+  lcd.setCursor(1,0);
+  lcd.print(tokens);
+  lcd.print(" Tokens");
+}
